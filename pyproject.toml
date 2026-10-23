@@ -1,0 +1,44 @@
+[project]
+name = "data-incident-investigator-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "manali146", email = "manalithakur165@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "duckdb>=1.5.6",
+    "langchain-openai>=1.7.2",
+    "langgraph>=1.2.16",
+    "mcp>=2.3.0",
+    "mcp-server-motherduck>=1.1.0",
+    "openai>=3.36.1",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
+]
+
+[project.scripts]
+data-incident-investigator-agent = "data_incident_investigator_agent:main"
+
+[build-system]
+requires = ["uv_build>=0.13.4,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E402", "E501"]  # E402: imports after sys.path.insert; E501: long prompt lines
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
