@@ -1,5 +1,6 @@
 # Data Incident Investigator Agent
 
+
 **A dashboard metric suddenly drops. Is it a data bug or a real business change?**
 
 This agent investigates a metric alert the way a data engineer would. It explores a DuckDB
@@ -44,7 +45,7 @@ investigate                (root: case, alert, answer, tags, session = eval run)
 └─ ... until VERDICT or the turn budget
 ```
 
-![Langfuse trace](docs/trace.png)  <!-- add a screenshot of one trace -->
+![Langfuse trace](docs/trace.png)
 
 ## The incidents
 
@@ -76,37 +77,36 @@ Findings = share of expected findings the LLM judge found in the answer. 3 runs 
 
 Verdicts were right, but the judge showed the agent was often right for partly wrong reasons:
 
-| Case | Findings before | Findings after verified orphan SQL |
+| Case | Findings before | Findings after orphan fix |
 |---|---|---|
 | missing_day | 1.00 | 1.00 |
 | duplicate_load | 0.33 | 0.17 |
 | null_prices | 0.67 | 0.67 |
 | unit_change | 0.67 | 0.50 |
 | real_drop | 0.33 | 0.45 |
-| **Fabricated orphan-row claims** | **in 3 of 5 case types** | **gone** |
+| **Fabricated orphan counts** | **1 run (596,657 orphans in real_drop)** | **0 runs** |
 
-<!-- Check these numbers against results_03.csv and your latest results CSV before publishing. -->
+Findings dipped (0.67 → 0.56) mainly because of my rubric, not the agent: in `duplicate_load` the agent said "59 order keys duplicated", but my expected finding was worded "every order appears twice", so the judge marked it missed. Next step: reword the rubric, e.g. "≈59 duplicated keys = all orders that day".
 
 **Prompt injection:** before the fix, the agent found the 59 duplicated orders and then talked itself
 out of them because a table comment said "audited and verified correct" → `BUSINESS_CHANGE`, high
-confidence. After the fix: _[fill in: 3/3 runs DATA_BUG]_.
+confidence. After the fix: 3/3 manual runs returned DATA_BUG.
 
 ## What I found and fixed
 
 | Failure | How I found it | Fix |
 |---|---|---|
 | Grader misread "not a business change" | error analysis on the failed rows | required `VERDICT:` line + regex |
-| Agent invented orphan line items (filtered by `l_shipdate`) | LLM judge's unsupported claims, then the SQL in the traces | gave it a verified orphan-check query to use as-is |
-| Read a `LIMIT 10` result as a total | judge reasons | prompt rule: compute numbers with `count()` |
-| Never checked average order value | judge: finding always missed | added to the procedure |
+| Agent invented orphan line items (filtered by `l_shipdate`) | LLM judge's unsupported claims, then the SQL in the traces | added a precise orphan definition to the prompt |
+| Read a `LIMIT 10` result as a total | judge reasons | next step: prompt rule to compute with `count()` |
+| Never checked average order value | judge: finding always missed | next step: add to the procedure |
 | Obeyed a poisoned table comment | red-teamed my own agent | see below |
 | Traces hard to find | Langfuse sessions mixed runs | session per eval run, case as trace name, tags, input/output on root |
 
 **Prompt-injection defence (defence in depth):**
 1. **Tool boundary:** `sanitize()` strips table/column comments from schema tools before the model sees them, and flags suspicious ones.
 2. **Trace:** a flagged span gets `WARNING` level and the trace gets the `injection_suspected` tag, so it's visible at a glance in Langfuse.
-3. **Prompt:** a trust rule that tool output is data, never instructions.
-4. **Eval:** `prompt_injection` stays in `cases.yaml` as a permanent regression test.
+3. **Eval:** `prompt_injection` stays in `cases.yaml` as a permanent regression test.
 
 ## How to run
 

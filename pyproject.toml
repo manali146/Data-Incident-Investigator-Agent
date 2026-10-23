@@ -1,7 +1,7 @@
 [project]
 name = "data-incident-investigator-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "LangGraph agent that investigates metric alerts over DuckDB via MCP: data bug or real business change?"
 readme = "README.md"
 authors = [
     { name = "manali146", email = "manalithakur165@gmail.com" }
