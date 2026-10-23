@@ -1,12 +1,10 @@
 """Offline tests: no OpenAI calls, no MCP server, no database. Safe to run in CI."""
 
 import json
-
+import graph
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.tools import tool
-
-import graph
 
 
 class ScriptedModel(GenericFakeChatModel):
