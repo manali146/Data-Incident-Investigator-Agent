@@ -1,0 +1,109 @@
+# Ground truth for each planted incident.
+# The agent only ever sees `alert` and `db`. Everything else is for grading.
+
+- id: missing_day
+  db: data/cases/missing_day.duckdb
+  alert: "The revenue dashboard shows nothing for today (1998-08-02) in any region. Did sales stop?"
+  is_data_bug: true
+  root_cause: missing_data
+  expected_findings:
+    - "orders has zero rows for 1998-08-02"
+    - "1998-08-01 and earlier look normal"
+  # A date spine makes the missing day show up as 0 instead of silently disappearing
+  evidence_sql: |
+    SELECT d::DATE AS day, count(o.o_orderkey) AS n_orders
+    FROM generate_series(DATE '1998-07-27', DATE '1998-08-02', INTERVAL 1 DAY) AS t(d)
+    LEFT JOIN orders o ON o.o_orderdate = d
+    GROUP BY day
+    ORDER BY day
+
+- id: duplicate_load
+  db: data/cases/duplicate_load.duckdb
+  alert: "Revenue on 1998-08-01 is about double the usual level in every region. Finance wants to know if it's real."
+  is_data_bug: true
+  root_cause: duplicate_load
+  expected_findings:
+    - "every order on 1998-08-01 appears twice (duplicate o_orderkey)"
+    - "order count doubled, average order value unchanged"
+  # Duplicate keys per day: all of them should land on 1998-08-01
+  evidence_sql: |
+    SELECT o_orderdate, count(*) AS duplicated_keys
+    FROM (
+        SELECT o_orderkey, o_orderdate
+        FROM orders
+        GROUP BY o_orderkey, o_orderdate
+        HAVING count(*) > 1
+    )
+    GROUP BY o_orderdate
+
+- id: null_prices
+  db: data/cases/null_prices.duckdb
+  alert: "ASIA revenue for 1998-08-02 is blank on the dashboard, but the order count looks normal."
+  is_data_bug: true
+  root_cause: null_values
+  expected_findings:
+    - "o_totalprice is NULL for ASIA orders on 1998-08-02"
+    - "other regions and days are not affected"
+  # count(col) skips NULLs, so n_orders - n_priced = number of NULL prices
+  evidence_sql: |
+    SELECT r.r_name AS region,
+           count(*) AS n_orders,
+           count(o.o_totalprice) AS n_priced,
+           count(*) - count(o.o_totalprice) AS n_null_prices
+    FROM orders o
+    JOIN customer c ON o.o_custkey = c.c_custkey
+    JOIN nation n ON c.c_nationkey = n.n_nationkey
+    JOIN region r ON n.n_regionkey = r.r_regionkey
+    WHERE o.o_orderdate = '1998-08-02'
+    GROUP BY region
+    ORDER BY region
+
+- id: unit_change
+  db: data/cases/unit_change.duckdb
+  alert: "Today's revenue (1998-08-02) is roughly 100x higher than usual in every region. Order counts are normal."
+  is_data_bug: true
+  root_cause: unit_change
+  expected_findings:
+    - "average o_totalprice on 1998-08-02 is about 100x the usual average"
+    - "likely cents instead of dollars"
+  # Same number of orders, but the average order value jumps ~100x
+  evidence_sql: |
+    SELECT o_orderdate,
+           count(*) AS n_orders,
+           round(avg(o_totalprice), 2) AS avg_order_value
+    FROM orders
+    WHERE o_orderdate >= '1998-07-27'
+    GROUP BY o_orderdate
+    ORDER BY o_orderdate
+
+- id: real_drop
+  db: data/cases/real_drop.duckdb
+  alert: "EUROPE revenue has been down about 50% for the last week. Is the pipeline broken?"
+  is_data_bug: false
+  root_cause: real_business_change
+  expected_findings:
+    - "EUROPE order count is about half of normal for the last 7 days"
+    - "no duplicates, no NULLs, no orphaned line items, prices in the normal range"
+    - "other regions are normal, so this is not a load failure"
+  # Proving there is no bug = a health checklist that comes back clean,
+  # plus the drop itself: last 7 days vs the 7 days before, per region
+  evidence_sql: |
+    WITH by_region AS (
+        SELECT r.r_name AS region,
+               count(*) FILTER (WHERE o.o_orderdate >  DATE '1998-08-02' - INTERVAL 7 DAY) AS last_7d,
+               count(*) FILTER (WHERE o.o_orderdate <= DATE '1998-08-02' - INTERVAL 7 DAY
+                                  AND o.o_orderdate >  DATE '1998-08-02' - INTERVAL 14 DAY) AS prev_7d
+        FROM orders o
+        JOIN customer c ON o.o_custkey = c.c_custkey
+        JOIN nation n ON c.c_nationkey = n.n_nationkey
+        JOIN region r ON n.n_regionkey = r.r_regionkey
+        GROUP BY region
+    )
+    SELECT region, last_7d, prev_7d,
+           round(last_7d / prev_7d, 2) AS ratio,
+           (SELECT count(*) - count(DISTINCT o_orderkey) FROM orders) AS duplicate_orders,
+           (SELECT count(*) - count(o_totalprice) FROM orders) AS null_prices,
+           (SELECT count(*) FROM lineitem
+             WHERE l_orderkey NOT IN (SELECT o_orderkey FROM orders)) AS orphan_lineitems
+    FROM by_region
+    ORDER BY ratio
