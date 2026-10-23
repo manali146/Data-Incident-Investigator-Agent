@@ -14,6 +14,8 @@ dependencies = [
     "mcp>=2.3.0",
     "mcp-server-motherduck>=1.1.0",
     "openai>=3.36.1",
+    "opentelemetry-exporter-otlp-proto-http>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
     "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
 ]
@@ -27,3 +29,16 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E402", "E501"]  # E402: imports after sys.path.insert; E501: long prompt lines
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

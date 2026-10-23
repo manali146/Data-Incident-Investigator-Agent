@@ -1,0 +1,16 @@
+case_id,run,expected,predicted,verdict_correct,steps,n_sql,input_tokens,output_tokens,latency_s
+missing_day,1,data_bug,business_change,False,4,8,8798,1007,18.0
+missing_day,2,data_bug,business_change,False,4,6,6836,1180,15.1
+missing_day,3,data_bug,business_change,False,4,6,9388,924,13.3
+duplicate_load,1,data_bug,data_bug,True,5,7,15704,1392,16.8
+duplicate_load,2,data_bug,data_bug,True,6,8,21039,1362,17.4
+duplicate_load,3,data_bug,data_bug,True,11,12,56607,2156,28.7
+null_prices,1,data_bug,data_bug,True,3,7,6424,1530,15.6
+null_prices,2,data_bug,data_bug,True,4,7,11823,1173,14.4
+null_prices,3,data_bug,business_change,False,3,6,6486,1218,27.4
+unit_change,1,data_bug,data_bug,True,5,10,17881,1854,20.8
+unit_change,2,data_bug,business_change,False,6,9,16498,1100,15.5
+unit_change,3,data_bug,unclear,False,4,9,8017,1281,15.1
+real_drop,1,business_change,business_change,True,7,9,20740,1340,19.9
+real_drop,2,business_change,business_change,True,11,10,47372,2918,35.0
+real_drop,3,business_change,business_change,True,9,7,27155,1607,22.8
